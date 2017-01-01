@@ -4,7 +4,7 @@ import unicodedata
 from nltk import word_tokenize
 from urllib import request
 from bs4 import BeautifulSoup
-from nltk.corpus import brown, gutenberg, nps_chat
+from nltk.corpus import brown, gutenberg, nps_chat, udhr
 
 stopwords = nltk.corpus.stopwords.words('english')
 
@@ -310,6 +310,7 @@ def tabulate_example():
   modals = ['can', 'could', 'may', 'might', 'must', 'will']
   tabulate(cfd, modals, genres)
 
+# Text wrapping example
 from textwrap import fill
 
 def wrap_text():
@@ -320,3 +321,63 @@ def wrap_text():
   output = ' '.join(pieces)
   wrapped = fill(output)
   print(wrapped)
+
+def reverse_text(text='monty-python'):
+  return text[::-1]
+
+def calculate_readability_index(words=brown.words(), sents=brown.sents()):
+  char_count = sum(len(w) for w in words)
+  word_count = len(words)
+  sent_count = len(sents)
+  avg_letters_per_word = char_count / word_count
+  avg_words_per_sent = word_count / sent_count
+  return (4.71 * avg_words_per_sent) + (0.5 * avg_letters_per_word) - 21.43
+
+def calculate_readability_index_example():
+  return sorted((calculate_readability_index(brown.words(categories=genre), brown.sents(categories=genre)), genre)
+    for genre in brown.categories())
+
+# https://en.wikipedia.org/wiki/Soundex#American_Soundex
+def soundex(word):
+  mapping = {
+    '[bfpvBFPV]': '1',
+    '[cgjkqsxzCGJKQSXZ]': '2',
+    '[dtDT]': '3',
+    '[lL]': '4',
+    '[mnMN]': '5',
+    '[rR]': '6'
+  }
+  rest = word[0] + re.sub(r'[hw]', '', word[1:])
+
+  for pattern, digit in mapping.items():
+    rest = re.sub(pattern, digit, rest)
+
+  rest = re.sub(r'(.)\1+', r'\1', rest)
+  rest = rest[0] + re.sub(r'[aeiouy]', '', rest[1:])
+
+  if (rest[0].isdigit()):
+    rest = word[0] + rest[1:]
+
+  return rest[:4].ljust(4, '0')
+
+# Guess language of previously unseen text
+def bigram_freqdist(words):
+  return nltk.FreqDist("".join(w)
+    for word in words
+    for w in nltk.bigrams(word.lower()))
+
+en_fd = bigram_freqdist(udhr.words("English-Latin1"))
+fr_fd = bigram_freqdist(udhr.words("French_Francais-Latin1"))
+de_fd = bigram_freqdist(udhr.words("German_Deutsch-Latin1"))
+es_fd = bigram_freqdist(udhr.words("Spanish-Latin1"))
+langs = ['en', 'fr', 'de', 'es']
+
+def label_ranks(ranks):
+  for i in range(len(langs)):
+    yield ranks[i], langs[i]
+
+def guess_language(words):
+  ranks = list(map(lambda x: nltk.spearman_correlation(x, bigram_freqdist(words)),
+    [en_fd, fr_fd, de_fd, es_fd]))
+  print(ranks)
+  return sorted(label_ranks(ranks), reverse=True)[0][1]
